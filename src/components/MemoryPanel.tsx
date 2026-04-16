@@ -17,12 +17,18 @@ interface MemoryPanelProps {
 export function MemoryPanel({ memories, onAddMemory, onDeleteMemory, onClose }: MemoryPanelProps) {
   const [newMemory, setNewMemory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   const handleAdd = () => {
     if (newMemory.trim()) {
       onAddMemory(newMemory.trim());
       setNewMemory('');
     }
+  };
+
+  const handleClearAll = () => {
+    memories.forEach(m => onDeleteMemory(m.id));
+    setShowConfirmClear(false);
   };
 
   const filteredMemories = memories.filter(memory => 
@@ -43,33 +49,57 @@ export function MemoryPanel({ memories, onAddMemory, onDeleteMemory, onClose }: 
       </div>
 
       <div className="p-4 border-b space-y-4 bg-muted/5">
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Memories</label>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Filter by keyword..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 text-xs bg-background"
-            />
+        {showConfirmClear ? (
+          <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20 space-y-3">
+            <p className="text-[10px] font-medium text-destructive">Clear all memories? This cannot be undone.</p>
+            <div className="flex gap-2">
+              <Button variant="destructive" size="sm" className="flex-1 h-7 text-[10px]" onClick={handleClearAll}>Confirm</Button>
+              <Button variant="outline" size="sm" className="flex-1 h-7 text-[10px]" onClick={() => setShowConfirmClear(false)}>Cancel</Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Memories</label>
+                {memories.length > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-5 px-1.5 text-[9px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setShowConfirmClear(true)}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Filter by keyword..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9 text-xs bg-background"
+                />
+              </div>
+            </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Add New</label>
-          <div className="flex flex-col gap-2">
-            <textarea
-              placeholder="Add a manual memory..."
-              value={newMemory}
-              onChange={(e) => setNewMemory(e.target.value)}
-              className="w-full text-xs p-2 rounded-md border bg-background resize-none h-20 focus:ring-1 focus:ring-primary outline-none"
-            />
-            <Button size="sm" onClick={handleAdd} disabled={!newMemory.trim()} className="w-full text-[10px] h-8">
-              Add to Memory
-            </Button>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Add New</label>
+              <div className="flex flex-col gap-2">
+                <textarea
+                  placeholder="Add a manual memory..."
+                  value={newMemory}
+                  onChange={(e) => setNewMemory(e.target.value)}
+                  className="w-full text-xs p-2 rounded-md border bg-background resize-none h-20 focus:ring-1 focus:ring-primary outline-none"
+                />
+                <Button size="sm" onClick={handleAdd} disabled={!newMemory.trim()} className="w-full text-[10px] h-8">
+                  Add to Memory
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="p-4 text-[10px] text-muted-foreground uppercase tracking-widest font-bold flex justify-between items-center">

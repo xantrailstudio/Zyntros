@@ -121,7 +121,7 @@ export function useChat(userId: string | undefined) {
   };
 
   const addMemory = async (content: string) => {
-    if (!userId) return;
+    if (!userId || userId === 'guest') return;
     const memId = Math.random().toString(36).substring(7);
     const newMemory: Memory = {
       id: memId,
@@ -145,22 +145,29 @@ export function useChat(userId: string | undefined) {
 
     setLoading(true);
     try {
-      // 1. Save user message
-      await setDoc(doc(db, 'chats', activeChatId, 'messages', userMsgId), userMessage);
-      
-      // 2. Update chat timestamp and title if it's the first message
-      const chatRef = doc(db, 'chats', activeChatId);
-      const updates: any = { updatedAt: Date.now() };
-      if (messages.length === 0) {
-        updates.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+      // 1. Save user message (only if not guest)
+      if (userId !== 'guest') {
+        await setDoc(doc(db, 'chats', activeChatId, 'messages', userMsgId), userMessage);
+      } else {
+        setMessages(prev => [...prev, userMessage]);
       }
-      await updateDoc(chatRef, updates);
+      
+      // 2. Update chat timestamp and title (only if not guest)
+      if (userId !== 'guest') {
+        const chatRef = doc(db, 'chats', activeChatId);
+        const updates: any = { updatedAt: Date.now() };
+        if (messages.length === 0) {
+          updates.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+        }
+        await updateDoc(chatRef, updates);
+      }
 
       // 3. Build context from memories and history
       const memoryContext = memories.map(m => m.content).join('\n');
       const historyContext = messages.slice(-10).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
       
-      const systemPrompt = `You are Zyntros, a highly intelligent AI assistant with a persistent memory system.
+      const isGuest = userId === 'guest';
+      const systemPrompt = `You are Zyntros, a highly intelligent AI assistant created by AbdulAziz Memon. You have a persistent memory system.
       
       USER MEMORIES (Key facts you know about the user):
       ${memoryContext || 'No specific memories yet.'}
@@ -169,16 +176,22 @@ export function useChat(userId: string | undefined) {
       ${historyContext || 'No previous history in this session.'}
       
       IMAGE GENERATION:
+      ${isGuest ? '- IMAGE GENERATION IS DISABLED. If the user asks for an image, politely explain that they need to sign in to use this feature.' : `
       - You can generate images by using the following markdown format: ![Image](https://pollinations.ai/p/DESCRIPTION?width=1024&height=1024&seed=SEED&model=flux)
       - Replace DESCRIPTION with a detailed, descriptive prompt for the image (use %20 for spaces).
       - Replace SEED with a random number for variety.
-      - When a user asks for an image, provide the markdown and a brief description.
+      - When a user asks for an image, provide the markdown and a brief description.`}
+      
+      CODE BLOCKS:
+      - When providing code, ALWAYS use markdown code blocks with the appropriate language identifier (e.g., \`\`\`typescript, \`\`\`python, etc.).
+      - Ensure the code is clean, well-commented, and ready to be copied.
       
       INSTRUCTIONS:
       - Use the USER MEMORIES to personalize your responses.
       - Refer to RECENT CONVERSATION HISTORY if the user asks about previous topics.
       - Keep responses concise, helpful, and professional.
-      - If the user shares a new important fact about themselves, acknowledge it.`;
+      - ${isGuest ? 'DO NOT mention saving memories as it is disabled.' : 'If the user shares a new important fact about themselves, acknowledge it.'}
+      - If anyone asks who created you, always state you were created by AbdulAziz Memon.`;
 
       // 4. Generate AI response
       const response = await generateText(content, systemPrompt);
@@ -191,14 +204,20 @@ export function useChat(userId: string | undefined) {
         timestamp: Date.now(),
       };
 
-      // 5. Save AI message
-      await setDoc(doc(db, 'chats', activeChatId, 'messages', assistantMsgId), assistantMessage);
+      // 5. Save AI message (only if not guest)
+      if (userId !== 'guest') {
+        await setDoc(doc(db, 'chats', activeChatId, 'messages', assistantMsgId), assistantMessage);
+      } else {
+        setMessages(prev => [...prev, assistantMessage]);
+      }
 
-      // 6. Simple memory extraction logic
-      const lowerContent = content.toLowerCase();
-      const memoryTriggers = ['my name is', 'i like', 'i live in', 'my favorite', 'i am a', 'i work as'];
-      if (memoryTriggers.some(trigger => lowerContent.includes(trigger))) {
-        await addMemory(content);
+      // 6. Simple memory extraction logic (only if not guest)
+      if (userId !== 'guest') {
+        const lowerContent = content.toLowerCase();
+        const memoryTriggers = ['my name is', 'i like', 'i live in', 'my favorite', 'i am a', 'i work as'];
+        if (memoryTriggers.some(trigger => lowerContent.includes(trigger))) {
+          await addMemory(content);
+        }
       }
 
     } catch (error) {
@@ -209,7 +228,7 @@ export function useChat(userId: string | undefined) {
   };
 
   const deleteMemory = async (id: string) => {
-    if (!userId) return;
+    if (!userId || userId === 'guest') return;
     await deleteDoc(doc(db, 'memories', id));
   };
 

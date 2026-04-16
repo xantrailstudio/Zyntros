@@ -17,15 +17,17 @@ import { MemoryPanel } from '@/src/components/MemoryPanel';
 import { useChat } from '@/src/hooks/useChat';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Brain, LogOut, Menu, User as UserIcon, Plus } from 'lucide-react';
+import { Brain, LogOut, Menu, User as UserIcon, Plus, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [isGuest, setIsGuest] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -40,11 +42,17 @@ export default function App() {
     sendMessage,
     addMemory,
     deleteMemory,
-  } = useChat(user?.uid);
+  } = useChat(user?.uid || (isGuest ? 'guest' : undefined));
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      if (user) {
+        setIsGuest(false);
+        setShowAuthModal(false);
+      } else {
+        setIsGuest(true);
+      }
       setAuthReady(true);
     });
     return () => unsubscribe();
@@ -55,6 +63,13 @@ export default function App() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Automatically create a chat for guests if none exists
+  useEffect(() => {
+    if (authReady && isGuest && chats.length === 0 && !activeChatId) {
+      createChat();
+    }
+  }, [authReady, isGuest, chats.length, activeChatId]);
 
   const handleLogin = async (email: string, pass: string) => {
     await signInWithEmailAndPassword(auth, email, pass);
@@ -73,7 +88,10 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
+    if (user) {
+      await signOut(auth);
+    }
+    setIsGuest(true);
     toast.info('Logged out');
   };
 
@@ -85,21 +103,29 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return (
-      <>
-        <Auth 
-          onLogin={handleLogin} 
-          onSignup={handleSignup} 
-          onGoogleLogin={handleGoogleLogin} 
-        />
-        <Toaster position="top-center" />
-      </>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute right-4 top-4 z-10"
+              onClick={() => setShowAuthModal(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+            <Auth 
+              onLogin={handleLogin} 
+              onSignup={handleSignup} 
+              onGoogleLogin={handleGoogleLogin} 
+            />
+          </div>
+        </div>
+      )}
+
       {/* Desktop Sidebar */}
       <div className="hidden md:block">
         <ChatSidebar
@@ -143,37 +169,63 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full">
-              <UserIcon className="w-3 h-3 text-muted-foreground" />
-              <span className="text-xs font-medium truncate max-w-[120px]">
-                {user.email}
-              </span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            {!user ? (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="h-8 text-xs font-semibold px-4"
+                onClick={() => setShowAuthModal(true)}
+              >
+                Sign In
+              </Button>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full">
+                  <UserIcon className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs font-medium truncate max-w-[120px]">
+                    {user.email}
+                  </span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         </header>
 
         {/* Messages */}
         <ScrollArea className="flex-1" ref={scrollRef}>
           <div className="max-w-4xl mx-auto pb-20">
+            {isGuest && (
+              <div className="m-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-[10px] text-primary font-medium text-center">
+                You are in Guest Mode. Memories and image generation are disabled. Sign in to unlock full features.
+              </div>
+            )}
             {activeChatId ? (
-              messages.length === 0 ? (
-                <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center text-center p-8">
-                  <div className="bg-primary/5 p-6 rounded-full mb-4">
-                    <Brain className="w-12 h-12 text-primary/40" />
+              <>
+                {messages.length === 0 ? (
+                  <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center text-center p-8">
+                    <div className="bg-primary/5 p-6 rounded-full mb-4">
+                      <Brain className="w-12 h-12 text-primary/40" />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2">How can I help you today?</h2>
+                    <p className="text-muted-foreground max-w-md">
+                      Start a conversation. I'll remember key details in your Memory Bank to provide better assistance over time.
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-bold mb-2">How can I help you today?</h2>
-                  <p className="text-muted-foreground max-w-md">
-                    Start a conversation. I'll remember key details in your Memory Bank to provide better assistance over time.
-                  </p>
-                </div>
-              ) : (
-                messages.map((msg) => (
-                  <ChatMessage key={msg.id} message={msg} />
-                ))
-              )
+                ) : (
+                  messages.map((msg) => (
+                    <ChatMessage key={msg.id} message={msg} />
+                  ))
+                )}
+                {loading && (
+                  <ChatMessage 
+                    message={{ id: 'loading', role: 'assistant', content: '', timestamp: Date.now() }} 
+                    isLoading={true} 
+                  />
+                )}
+              </>
             ) : (
               <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center text-center p-8">
                 <Brain className="w-16 h-16 text-primary/20 mb-6" />
@@ -182,15 +234,6 @@ export default function App() {
                   <Plus className="w-5 h-5" />
                   Start Your First Chat
                 </Button>
-              </div>
-            )}
-            {loading && (
-              <div className="p-6 flex gap-4 bg-muted/30 animate-pulse">
-                <div className="h-8 w-8 rounded-full bg-muted" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-2 w-24 bg-muted rounded" />
-                  <div className="h-4 w-full bg-muted rounded" />
-                </div>
               </div>
             )}
           </div>
