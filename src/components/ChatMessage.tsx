@@ -23,9 +23,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
       </Avatar>
       <div className="flex-1 space-y-2 overflow-hidden">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {isUser ? 'You' : 'Pollinations AI'}
+          {isUser ? 'You' : 'Zyntros'}
         </p>
-        <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+        <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-img:rounded-lg prose-img:shadow-md">
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
       </div>

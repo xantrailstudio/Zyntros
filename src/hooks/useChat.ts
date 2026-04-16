@@ -168,6 +168,12 @@ export function useChat(userId: string | undefined) {
       RECENT CONVERSATION HISTORY (Old search/chat history):
       ${historyContext || 'No previous history in this session.'}
       
+      IMAGE GENERATION:
+      - You can generate images by using the following markdown format: ![Image](https://pollinations.ai/p/DESCRIPTION?width=1024&height=1024&seed=SEED&model=flux)
+      - Replace DESCRIPTION with a detailed, descriptive prompt for the image (use %20 for spaces).
+      - Replace SEED with a random number for variety.
+      - When a user asks for an image, provide the markdown and a brief description.
+      
       INSTRUCTIONS:
       - Use the USER MEMORIES to personalize your responses.
       - Refer to RECENT CONVERSATION HISTORY if the user asks about previous topics.
