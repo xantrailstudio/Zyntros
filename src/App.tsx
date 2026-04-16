@@ -38,6 +38,7 @@ export default function App() {
     createChat,
     deleteChat,
     sendMessage,
+    addMemory,
     deleteMemory,
   } = useChat(user?.uid);
 
@@ -137,7 +138,7 @@ export default function App() {
             </Sheet>
             <div className="flex items-center gap-2 font-bold text-lg tracking-tight">
               <Brain className="w-6 h-6 text-primary" />
-              <span className="hidden sm:inline">Pollinations AI</span>
+              <span className="hidden sm:inline">Zyntros</span>
             </div>
           </div>
 
@@ -176,7 +177,7 @@ export default function App() {
             ) : (
               <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center text-center p-8">
                 <Brain className="w-16 h-16 text-primary/20 mb-6" />
-                <h2 className="text-3xl font-bold mb-4">Welcome to Pollinations Chat</h2>
+                <h2 className="text-3xl font-bold mb-4">Welcome to Zyntros</h2>
                 <Button onClick={createChat} size="lg" className="gap-2">
                   <Plus className="w-5 h-5" />
                   Start Your First Chat
@@ -206,6 +207,7 @@ export default function App() {
         <div className="hidden lg:block">
           <MemoryPanel 
             memories={memories} 
+            onAddMemory={addMemory}
             onDeleteMemory={deleteMemory} 
             onClose={() => setIsMemoryOpen(false)} 
           />
@@ -217,6 +219,7 @@ export default function App() {
         <SheetContent side="right" className="p-0 w-80">
           <MemoryPanel 
             memories={memories} 
+            onAddMemory={addMemory}
             onDeleteMemory={deleteMemory} 
             onClose={() => setIsMemoryOpen(false)} 
           />

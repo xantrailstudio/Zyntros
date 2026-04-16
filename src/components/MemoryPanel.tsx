@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Brain, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,11 +8,21 @@ import { format } from 'date-fns';
 
 interface MemoryPanelProps {
   memories: Memory[];
+  onAddMemory: (content: string) => void;
   onDeleteMemory: (id: string) => void;
   onClose: () => void;
 }
 
-export function MemoryPanel({ memories, onDeleteMemory, onClose }: MemoryPanelProps) {
+export function MemoryPanel({ memories, onAddMemory, onDeleteMemory, onClose }: MemoryPanelProps) {
+  const [newMemory, setNewMemory] = useState('');
+
+  const handleAdd = () => {
+    if (newMemory.trim()) {
+      onAddMemory(newMemory.trim());
+      setNewMemory('');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-background border-l w-80">
       <div className="p-4 border-b flex items-center justify-between bg-muted/20">
@@ -23,8 +34,23 @@ export function MemoryPanel({ memories, onDeleteMemory, onClose }: MemoryPanelPr
           <X className="w-4 h-4" />
         </Button>
       </div>
-      <div className="p-4 text-xs text-muted-foreground">
-        Key facts the AI remembers about you and your conversations.
+      
+      <div className="p-4 border-b bg-muted/10">
+        <div className="flex flex-col gap-2">
+          <textarea
+            placeholder="Add a manual memory..."
+            value={newMemory}
+            onChange={(e) => setNewMemory(e.target.value)}
+            className="w-full text-xs p-2 rounded-md border bg-background resize-none h-20 focus:ring-1 focus:ring-primary outline-none"
+          />
+          <Button size="sm" onClick={handleAdd} disabled={!newMemory.trim()} className="w-full text-[10px] h-8">
+            Add to Memory
+          </Button>
+        </div>
+      </div>
+
+      <div className="p-4 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+        Stored Memories
       </div>
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-3">

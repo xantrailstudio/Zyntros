@@ -8,23 +8,11 @@ import {
   where, 
   orderBy, 
   onSnapshot, 
-  addDoc, 
   deleteDoc, 
   doc, 
   updateDoc, 
-  serverTimestamp,
-  setDoc,
-  getDocs
+  setDoc
 } from 'firebase/firestore';
-
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
 
 export function useChat(userId: string | undefined) {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -132,6 +120,18 @@ export function useChat(userId: string | undefined) {
     }
   };
 
+  const addMemory = async (content: string) => {
+    if (!userId) return;
+    const memId = Math.random().toString(36).substring(7);
+    const newMemory: Memory = {
+      id: memId,
+      userId,
+      content,
+      createdAt: Date.now(),
+    };
+    await setDoc(doc(db, 'memories', memId), newMemory);
+  };
+
   const sendMessage = async (content: string) => {
     if (!userId || !activeChatId) return;
 
@@ -156,13 +156,23 @@ export function useChat(userId: string | undefined) {
       }
       await updateDoc(chatRef, updates);
 
-      // 3. Build context from memories
+      // 3. Build context from memories and history
       const memoryContext = memories.map(m => m.content).join('\n');
-      const systemPrompt = `You are a helpful AI assistant with a memory system. 
-      Here are some things you remember about the user:
-      ${memoryContext || 'No memories yet.'}
+      const historyContext = messages.slice(-10).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
       
-      Keep your responses concise and helpful. If you learn something new and important about the user, mention it.`;
+      const systemPrompt = `You are Zyntros, a highly intelligent AI assistant with a persistent memory system.
+      
+      USER MEMORIES (Key facts you know about the user):
+      ${memoryContext || 'No specific memories yet.'}
+      
+      RECENT CONVERSATION HISTORY (Old search/chat history):
+      ${historyContext || 'No previous history in this session.'}
+      
+      INSTRUCTIONS:
+      - Use the USER MEMORIES to personalize your responses.
+      - Refer to RECENT CONVERSATION HISTORY if the user asks about previous topics.
+      - Keep responses concise, helpful, and professional.
+      - If the user shares a new important fact about themselves, acknowledge it.`;
 
       // 4. Generate AI response
       const response = await generateText(content, systemPrompt);
@@ -182,14 +192,7 @@ export function useChat(userId: string | undefined) {
       const lowerContent = content.toLowerCase();
       const memoryTriggers = ['my name is', 'i like', 'i live in', 'my favorite', 'i am a', 'i work as'];
       if (memoryTriggers.some(trigger => lowerContent.includes(trigger))) {
-        const memId = Math.random().toString(36).substring(7);
-        const newMemory: Memory = {
-          id: memId,
-          userId,
-          content: content,
-          createdAt: Date.now(),
-        };
-        await setDoc(doc(db, 'memories', memId), newMemory);
+        await addMemory(content);
       }
 
     } catch (error) {
@@ -214,6 +217,7 @@ export function useChat(userId: string | undefined) {
     createChat,
     deleteChat,
     sendMessage,
+    addMemory,
     deleteMemory,
   };
 }

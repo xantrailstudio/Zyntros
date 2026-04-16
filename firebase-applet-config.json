@@ -1,9 +1,10 @@
 {
-  "apiKey": "AIzaSyDummyKey",
-  "authDomain": "buildxpc-app.firebaseapp.com",
-  "projectId": "buildxpc-app",
-  "storageBucket": "buildxpc-app.appspot.com",
-  "messagingSenderId": "123456789",
-  "appId": "1:123456789:web:abcdef",
+  "apiKey": "AIzaSyCDQ2ICwuzjXuE8l0AopNUzjXG4zpZlNtI",
+  "authDomain": "zyntros-8811f.firebaseapp.com",
+  "projectId": "zyntros-8811f",
+  "storageBucket": "zyntros-8811f.firebasestorage.app",
+  "messagingSenderId": "565931433713",
+  "appId": "1:565931433713:web:2819979547d8c99a049350",
+  "measurementId": "G-VWH0R026RX",
   "firestoreDatabaseId": "(default)"
 }

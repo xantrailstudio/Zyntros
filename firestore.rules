@@ -49,10 +49,6 @@ service cloud.firestore {
       return request.resource.data.keys().hasAll(fields);
     }
 
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
     // ===============================================================
     // Domain Validators
     // ===============================================================
@@ -95,7 +91,6 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId);
 
       match /messages/{messageId} {
-        // Parent check: only owner of the chat can read/write messages
         allow read: if isOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId);
         allow create: if isOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId) && 
                         isValidMessage(request.resource.data);
