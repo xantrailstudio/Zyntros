@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: chats
+    // Document ID: {chatId}
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required)
+    //   - userId: string (required, immutable)
+    //   - createdAt: number (required)
+    //   - updatedAt: number (required)
+    //
+    // Collection: chats/{chatId}/messages
+    // Document ID: {messageId}
+    // Fields:
+    //   - id: string (required)
+    //   - role: string (required, enum: ['user', 'assistant'])
+    //   - content: string (required, max 5000 chars)
+    //   - timestamp: number (required)
+    //
+    // Collection: memories
+    // Document ID: {memoryId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required, immutable)
+    //   - content: string (required, max 1000 chars)
+    //   - category: string (optional)
+    //   - createdAt: number (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidChat(data) {
+      return hasRequiredFields(['id', 'title', 'userId', 'createdAt', 'updatedAt']) &&
+             data.id is string &&
+             data.title is string && data.title.size() <= 100 &&
+             data.userId is string &&
+             data.createdAt is number &&
+             data.updatedAt is number;
+    }
+
+    function isValidMessage(data) {
+      return hasRequiredFields(['id', 'role', 'content', 'timestamp']) &&
+             data.id is string &&
+             data.role in ['user', 'assistant'] &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.timestamp is number;
+    }
+
+    function isValidMemory(data) {
+      return hasRequiredFields(['id', 'userId', 'content', 'createdAt']) &&
+             data.id is string &&
+             data.userId is string &&
+             data.content is string && data.content.size() <= 1000 &&
+             data.createdAt is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /chats/{chatId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId) && isValidChat(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidChat(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+
+      match /messages/{messageId} {
+        // Parent check: only owner of the chat can read/write messages
+        allow read: if isOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId);
+        allow create: if isOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId) && 
+                        isValidMessage(request.resource.data);
+      }
+    }
+
+    match /memories/{memoryId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId) && isValidMemory(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidMemory(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

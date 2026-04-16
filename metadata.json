@@ -1,0 +1,6 @@
+{
+  "name": "Pollinations Memory Chat",
+  "description": "An AI chat application powered by Pollinations.ai with a persistent memory system and Firebase authentication.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

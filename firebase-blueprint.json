@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Chat": {
+      "title": "Chat",
+      "description": "A conversation session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "title", "userId", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "role", "content", "timestamp"]
+    },
+    "Memory": {
+      "title": "Memory",
+      "description": "A piece of information remembered about the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "User chats"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a chat"
+    },
+    "/memories/{memoryId}": {
+      "schema": "Memory",
+      "description": "User memories"
+    }
+  }
+}

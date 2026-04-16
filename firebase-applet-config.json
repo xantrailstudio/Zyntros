@@ -1,0 +1,9 @@
+{
+  "apiKey": "AIzaSyDummyKey",
+  "authDomain": "buildxpc-app.firebaseapp.com",
+  "projectId": "buildxpc-app",
+  "storageBucket": "buildxpc-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef",
+  "firestoreDatabaseId": "(default)"
+}
