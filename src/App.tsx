@@ -60,7 +60,10 @@ export default function App() {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [messages]);
 
@@ -195,30 +198,21 @@ export default function App() {
         </header>
 
         {/* Messages */}
-        <ScrollArea className="flex-1" ref={scrollRef}>
-          <div className="max-w-4xl mx-auto pb-20">
+        <div 
+          className="flex-1 overflow-y-auto scroll-smooth" 
+          ref={scrollRef}
+        >
+          <div className="max-w-4xl mx-auto pb-20 p-4">
             {isGuest && (
               <div className="m-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-[10px] text-primary font-medium text-center">
                 You are in Guest Mode. Memories and image generation are disabled. Sign in to unlock full features.
               </div>
             )}
-            {activeChatId ? (
+            {activeChatId && messages.length > 0 ? (
               <>
-                {messages.length === 0 ? (
-                  <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center text-center p-8">
-                    <div className="bg-primary/5 p-6 rounded-full mb-4">
-                      <Brain className="w-12 h-12 text-primary/40" />
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2">How can I help you today?</h2>
-                    <p className="text-muted-foreground max-w-md">
-                      Start a conversation. I'll remember key details in your Memory Bank to provide better assistance over time.
-                    </p>
-                  </div>
-                ) : (
-                  messages.map((msg) => (
-                    <ChatMessage key={msg.id} message={msg} />
-                  ))
-                )}
+                {messages.map((msg) => (
+                  <ChatMessage key={msg.id} message={msg} />
+                ))}
                 {loading && (
                   <ChatMessage 
                     message={{ id: 'loading', role: 'assistant', content: '', timestamp: Date.now() }} 
@@ -227,21 +221,24 @@ export default function App() {
                 )}
               </>
             ) : (
-              <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center text-center p-8">
-                <Brain className="w-16 h-16 text-primary/20 mb-6" />
-                <h2 className="text-3xl font-bold mb-4">Welcome to Zyntros</h2>
-                <Button onClick={createChat} size="lg" className="gap-2">
-                  <Plus className="w-5 h-5" />
-                  Start Your First Chat
-                </Button>
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-6">
+                <div className="bg-primary/5 p-8 rounded-full">
+                  <Brain className="w-16 h-16 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-bold tracking-tight">How can I help you today?</h2>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Type a message below to start a new conversation. I'll remember key details in your Memory Bank.
+                  </p>
+                </div>
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Input */}
         <div className="sticky bottom-0 w-full">
-          <ChatInput onSend={sendMessage} disabled={!activeChatId || loading} />
+          <ChatInput onSend={sendMessage} disabled={loading} />
         </div>
       </div>
 

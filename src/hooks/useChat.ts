@@ -23,8 +23,8 @@ export function useChat(userId: string | undefined) {
 
   // Sync Chats
   useEffect(() => {
-    if (!userId) {
-      setChats([]);
+    if (!userId || userId === 'guest') {
+      if (!userId) setChats([]);
       return;
     }
 
@@ -49,8 +49,8 @@ export function useChat(userId: string | undefined) {
 
   // Sync Messages
   useEffect(() => {
-    if (!userId || !activeChatId) {
-      setMessages([]);
+    if (!userId || userId === 'guest' || !activeChatId) {
+      if (!userId || !activeChatId) setMessages([]);
       return;
     }
 
@@ -133,7 +133,30 @@ export function useChat(userId: string | undefined) {
   };
 
   const sendMessage = async (content: string) => {
-    if (!userId || !activeChatId) return;
+    if (!userId) return;
+
+    let currentChatId = activeChatId;
+
+    // Auto-create chat if none active
+    if (!currentChatId) {
+      const id = Math.random().toString(36).substring(7);
+      const newChat = {
+        id,
+        title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
+        userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      
+      if (userId !== 'guest') {
+        await setDoc(doc(db, 'chats', id), newChat);
+      } else {
+        // Guests only get one transient chat for now
+        setChats([newChat as Chat]);
+      }
+      setActiveChatId(id);
+      currentChatId = id;
+    }
 
     const userMsgId = Math.random().toString(36).substring(7);
     const userMessage: Message = {
@@ -145,18 +168,20 @@ export function useChat(userId: string | undefined) {
 
     setLoading(true);
     try {
-      // 1. Save user message (only if not guest)
+      // 1. Save user message
       if (userId !== 'guest') {
-        await setDoc(doc(db, 'chats', activeChatId, 'messages', userMsgId), userMessage);
+        await setDoc(doc(db, 'chats', currentChatId, 'messages', userMsgId), userMessage);
       } else {
         setMessages(prev => [...prev, userMessage]);
       }
       
-      // 2. Update chat timestamp and title (only if not guest)
+      // 2. Update chat timestamp and title (if needed)
       if (userId !== 'guest') {
-        const chatRef = doc(db, 'chats', activeChatId);
+        const chatRef = doc(db, 'chats', currentChatId);
         const updates: any = { updatedAt: Date.now() };
-        if (messages.length === 0) {
+        // We only auto-set title on the very first message if it was "New Chat"
+        const existingChat = chats.find(c => c.id === currentChatId);
+        if (existingChat && existingChat.title === 'New Chat') {
           updates.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
         }
         await updateDoc(chatRef, updates);
@@ -186,6 +211,11 @@ export function useChat(userId: string | undefined) {
       - When providing code, ALWAYS use markdown code blocks with the appropriate language identifier (e.g., \`\`\`typescript, \`\`\`python, etc.).
       - Ensure the code is clean, well-commented, and ready to be copied.
       
+      RENAMING POWER:
+      - You can rename the current chat if the topic changes or at the user's request by including this tag in your response: [SET_CHAT_TITLE: New Title]
+      - You can set the user's preferred name by including this tag: [SET_USER_NAME: Name]
+      - These tags will be processed and hidden from the user, so use them independently in your response.
+      
       INSTRUCTIONS:
       - Use the USER MEMORIES to personalize your responses.
       - Refer to RECENT CONVERSATION HISTORY if the user asks about previous topics.
@@ -196,17 +226,34 @@ export function useChat(userId: string | undefined) {
       // 4. Generate AI response
       const response = await generateText(content, systemPrompt);
 
+      // Handle AI Commands for Renaming
+      let cleanResponse = response;
+      const titleMatch = response.match(/\[SET_CHAT_TITLE: (.*?)\]/);
+      if (titleMatch && userId !== 'guest') {
+        const newTitle = titleMatch[1].trim();
+        await renameChat(currentChatId, newTitle);
+        cleanResponse = cleanResponse.replace(/\[SET_CHAT_TITLE: .*?\]/, '').trim();
+      }
+
+      const userNameMatch = response.match(/\[SET_USER_NAME: (.*?)\]/);
+      if (userNameMatch && userId !== 'guest') {
+        const newName = userNameMatch[1].trim();
+        // For now, we'll store user name in memories since we don't have a profile collection yet
+        await addMemory(`My preferred name is ${newName}`);
+        cleanResponse = cleanResponse.replace(/\[SET_USER_NAME: .*?\]/, '').trim();
+      }
+
       const assistantMsgId = Math.random().toString(36).substring(7);
       const assistantMessage: Message = {
         id: assistantMsgId,
         role: 'assistant',
-        content: response,
+        content: cleanResponse,
         timestamp: Date.now(),
       };
 
-      // 5. Save AI message (only if not guest)
+      // 5. Save AI message
       if (userId !== 'guest') {
-        await setDoc(doc(db, 'chats', activeChatId, 'messages', assistantMsgId), assistantMessage);
+        await setDoc(doc(db, 'chats', currentChatId, 'messages', assistantMsgId), assistantMessage);
       } else {
         setMessages(prev => [...prev, assistantMessage]);
       }
@@ -214,7 +261,7 @@ export function useChat(userId: string | undefined) {
       // 6. Simple memory extraction logic (only if not guest)
       if (userId !== 'guest') {
         const lowerContent = content.toLowerCase();
-        const memoryTriggers = ['my name is', 'i like', 'i live in', 'my favorite', 'i am a', 'i work as'];
+        const memoryTriggers = ['my name is', 'i like', 'i live in', 'my favorite', 'i am a', 'i work as', 'remember that'];
         if (memoryTriggers.some(trigger => lowerContent.includes(trigger))) {
           await addMemory(content);
         }
@@ -225,6 +272,11 @@ export function useChat(userId: string | undefined) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renameChat = async (chatId: string, newTitle: string) => {
+    if (!userId || userId === 'guest') return;
+    await updateDoc(doc(db, 'chats', chatId), { title: newTitle });
   };
 
   const deleteMemory = async (id: string) => {
@@ -241,6 +293,7 @@ export function useChat(userId: string | undefined) {
     loading,
     createChat,
     deleteChat,
+    renameChat,
     sendMessage,
     addMemory,
     deleteMemory,
