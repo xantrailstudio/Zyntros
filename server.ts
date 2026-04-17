@@ -16,6 +16,7 @@ async function startServer() {
 
   // API Route for Image Generation (Proxy to Pollinations)
   app.get("/api/generate-image", async (req, res) => {
+    // ... existing logic ...
     const { prompt, seed, width, height, model } = req.query;
     
     if (!prompt) {
@@ -24,8 +25,6 @@ async function startServer() {
 
     const apiKey = process.env.POLLUNATION_API_KEY;
     
-    // Construct Pollinations URL
-    // Default values if not provided
     const s = seed || Math.floor(Math.random() * 1000000);
     const w = width || 1024;
     const h = height || 1024;
@@ -34,20 +33,48 @@ async function startServer() {
     const pollinationsUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt as string)}?width=${w}&height=${h}&seed=${s}&model=${m}`;
 
     try {
-      // We fetch the image from Pollinations using the API key in headers
       const response = await axios.get(pollinationsUrl, {
         responseType: "arraybuffer",
-        headers: apiKey ? {
-          "Authorization": `Bearer ${apiKey}`
-        } : {}
+        headers: apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}
       });
 
-      // Forward the image data and content type
       res.setHeader("Content-Type", response.headers["content-type"] || "image/jpeg");
       res.send(response.data);
     } catch (error) {
       console.error("Error generating image via proxy:", error);
       res.status(500).json({ error: "Failed to generate image" });
+    }
+  });
+
+  // API Route for Text Generation (Proxy to Pollinations)
+  app.post("/api/chat", async (req, res) => {
+    const { messages, model, seed } = req.body;
+    const apiKey = process.env.POLLUNATION_API_KEY;
+
+    try {
+      const pData = {
+        messages,
+        model: model || "mistral",
+        seed: seed || Math.floor(Math.random() * 1000000),
+        json: false
+      };
+      
+      const response = await axios.post("https://text.pollinations.ai/", pData, {
+        headers: apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}
+      });
+
+      let text = response.data;
+      
+      // If the response is somehow an object (e.g. from a reasoning model), 
+      // we extract the readable content part
+      if (typeof text === "object" && text !== null) {
+        text = text.content || text.text || text.choices?.[0]?.message?.content || JSON.stringify(text);
+      }
+
+      res.send(text);
+    } catch (error) {
+      console.error("Error in chat proxy:", error);
+      res.status(500).send("Failed to generate response");
     }
   });
 

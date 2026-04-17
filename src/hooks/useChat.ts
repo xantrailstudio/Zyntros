@@ -217,6 +217,7 @@ export function useChat(userId: string | undefined) {
       - These tags will be processed and hidden from the user, so use them independently in your response.
       
       INSTRUCTIONS:
+      - ONLY provide the final response text. DO NOT include internal reasoning, thought process, or raw JSON metadata unless using the specific tags provided.
       - Use the USER MEMORIES to personalize your responses.
       - Refer to RECENT CONVERSATION HISTORY if the user asks about previous topics.
       - Keep responses concise, helpful, and professional.
@@ -225,6 +226,10 @@ export function useChat(userId: string | undefined) {
 
       // 4. Generate AI response
       const response = await generateText(content, systemPrompt);
+
+      if (!response || typeof response !== 'string') {
+        throw new Error('Invalid response from AI service');
+      }
 
       // Handle AI Commands for Renaming
       let cleanResponse = response;
