@@ -51,6 +51,8 @@ async function startServer() {
     const { messages, model, seed } = req.body;
     const apiKey = process.env.POLLUNATION_API_KEY;
 
+    console.log(`[AI Proxy] Generating text with model: ${model || "mistral"}`);
+
     try {
       const pData = {
         messages,
@@ -60,7 +62,13 @@ async function startServer() {
       };
       
       const response = await axios.post("https://text.pollinations.ai/", pData, {
-        headers: apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}
+        headers: apiKey ? { 
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        } : {
+          "Content-Type": "application/json"
+        },
+        timeout: 30000 // 30 seconds timeout
       });
 
       let text = response.data;
@@ -71,10 +79,17 @@ async function startServer() {
         text = text.content || text.text || text.choices?.[0]?.message?.content || JSON.stringify(text);
       }
 
+      if (typeof text !== "string") {
+        text = String(text);
+      }
+
       res.send(text);
-    } catch (error) {
-      console.error("Error in chat proxy:", error);
-      res.status(500).send("Failed to generate response");
+    } catch (error: any) {
+      console.error("Error in chat proxy:", error.message);
+      if (error.response) {
+        console.error("Pollinations Response Error:", error.response.status, error.response.data);
+      }
+      res.status(500).send("AI Service Error: Failed to generate response");
     }
   });
 

@@ -11,8 +11,55 @@ import {
   deleteDoc, 
   doc, 
   updateDoc, 
-  setDoc
+  setDoc,
+  getDocs
 } from 'firebase/firestore';
+import { auth } from '@/src/firebase';
+import { toast } from 'sonner';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error Detailed:', JSON.stringify(errInfo));
+
+  if (errInfo.error.includes('Missing or insufficient permissions')) {
+    toast.error('Database Permission Error: You do not have permission to perform this action. Your session might have expired.');
+  } else {
+    toast.error(`Database Error: ${errInfo.error}`);
+  }
+
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export function useChat(userId: string | undefined) {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -41,7 +88,7 @@ export function useChat(userId: string | undefined) {
       })) as Chat[];
       setChats(chatList);
     }, (error) => {
-      console.error('Firestore Chats Error:', error);
+      handleFirestoreError(error, OperationType.LIST, 'chats');
     });
 
     return () => unsubscribe();
@@ -49,6 +96,7 @@ export function useChat(userId: string | undefined) {
 
   // Sync Messages
   useEffect(() => {
+    // If guest, we don't sync from Firestore, but we also don't want to wipe local messages
     if (!userId || userId === 'guest' || !activeChatId) {
       if (!userId || !activeChatId) setMessages([]);
       return;
@@ -64,9 +112,16 @@ export function useChat(userId: string | undefined) {
         ...doc.data(),
         id: doc.id
       })) as Message[];
-      setMessages(msgList);
+      
+      // Merge with any local optimistic messages that might not be in DB yet
+      // This helps with "Database Not Found" scenarios
+      setMessages(prev => {
+        const localIds = new Set(msgList.map(m => m.id));
+        const optimistic = prev.filter(m => !localIds.has(m.id) && m.role === 'user');
+        return [...msgList, ...optimistic].sort((a, b) => a.timestamp - b.timestamp);
+      });
     }, (error) => {
-      console.error('Firestore Messages Error:', error);
+      handleFirestoreError(error, OperationType.LIST, `chats/${activeChatId}/messages`);
     });
 
     return () => unsubscribe();
@@ -74,8 +129,8 @@ export function useChat(userId: string | undefined) {
 
   // Sync Memories
   useEffect(() => {
-    if (!userId) {
-      setMemories([]);
+    if (!userId || userId === 'guest') {
+      if (!userId) setMemories([]);
       return;
     }
 
@@ -92,7 +147,7 @@ export function useChat(userId: string | undefined) {
       })) as Memory[];
       setMemories(memList);
     }, (error) => {
-      console.error('Firestore Memories Error:', error);
+      handleFirestoreError(error, OperationType.LIST, 'memories');
     });
 
     return () => unsubscribe();
@@ -108,15 +163,23 @@ export function useChat(userId: string | undefined) {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    await setDoc(doc(db, 'chats', id), newChat);
-    setActiveChatId(id);
+    try {
+      await setDoc(doc(db, 'chats', id), newChat);
+      setActiveChatId(id);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `chats/${id}`);
+    }
   };
 
   const deleteChat = async (id: string) => {
     if (!userId) return;
-    await deleteDoc(doc(db, 'chats', id));
-    if (activeChatId === id) {
-      setActiveChatId(null);
+    try {
+      await deleteDoc(doc(db, 'chats', id));
+      if (activeChatId === id) {
+        setActiveChatId(null);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `chats/${id}`);
     }
   };
 
@@ -129,7 +192,11 @@ export function useChat(userId: string | undefined) {
       content,
       createdAt: Date.now(),
     };
-    await setDoc(doc(db, 'memories', memId), newMemory);
+    try {
+      await setDoc(doc(db, 'memories', memId), newMemory);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `memories/${memId}`);
+    }
   };
 
   const sendMessage = async (content: string) => {
@@ -167,24 +234,32 @@ export function useChat(userId: string | undefined) {
     };
 
     setLoading(true);
+    // Optimistic update for UI
+    setMessages(prev => [...prev, userMessage]);
+
     try {
       // 1. Save user message
       if (userId !== 'guest') {
-        await setDoc(doc(db, 'chats', currentChatId, 'messages', userMsgId), userMessage);
-      } else {
-        setMessages(prev => [...prev, userMessage]);
+        try {
+          await setDoc(doc(db, 'chats', currentChatId, 'messages', userMsgId), userMessage);
+        } catch (error: any) {
+          handleFirestoreError(error, OperationType.CREATE, `chats/${currentChatId}/messages/${userMsgId}`);
+        }
       }
       
       // 2. Update chat timestamp and title (if needed)
       if (userId !== 'guest') {
-        const chatRef = doc(db, 'chats', currentChatId);
-        const updates: any = { updatedAt: Date.now() };
-        // We only auto-set title on the very first message if it was "New Chat"
-        const existingChat = chats.find(c => c.id === currentChatId);
-        if (existingChat && existingChat.title === 'New Chat') {
-          updates.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+        try {
+          const chatRef = doc(db, 'chats', currentChatId);
+          const updates: any = { updatedAt: Date.now() };
+          const existingChat = chats.find(c => c.id === currentChatId);
+          if (existingChat && existingChat.title === 'New Chat') {
+            updates.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+          }
+          await updateDoc(chatRef, updates);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, `chats/${currentChatId}`);
         }
-        await updateDoc(chatRef, updates);
       }
 
       // 3. Build context from memories and history
@@ -258,7 +333,11 @@ export function useChat(userId: string | undefined) {
 
       // 5. Save AI message
       if (userId !== 'guest') {
-        await setDoc(doc(db, 'chats', currentChatId, 'messages', assistantMsgId), assistantMessage);
+        try {
+          await setDoc(doc(db, 'chats', currentChatId, 'messages', assistantMsgId), assistantMessage);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.CREATE, `chats/${currentChatId}/messages/${assistantMsgId}`);
+        }
       } else {
         setMessages(prev => [...prev, assistantMessage]);
       }
@@ -272,8 +351,15 @@ export function useChat(userId: string | undefined) {
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      const errorMsg: Message = {
+        id: Math.random().toString(36).substring(7),
+        role: 'assistant',
+        content: `Error: ${error.message || 'Failed to generate response. Please check your internet connection and API key.'}`,
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
@@ -281,12 +367,20 @@ export function useChat(userId: string | undefined) {
 
   const renameChat = async (chatId: string, newTitle: string) => {
     if (!userId || userId === 'guest') return;
-    await updateDoc(doc(db, 'chats', chatId), { title: newTitle });
+    try {
+      await updateDoc(doc(db, 'chats', chatId), { title: newTitle });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}`);
+    }
   };
 
   const deleteMemory = async (id: string) => {
     if (!userId || userId === 'guest') return;
-    await deleteDoc(doc(db, 'memories', id));
+    try {
+      await deleteDoc(doc(db, 'memories', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `memories/${id}`);
+    }
   };
 
   return {

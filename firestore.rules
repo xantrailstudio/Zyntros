@@ -82,28 +82,32 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
+    function isAuthOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
     match /chats/{chatId} {
-      allow read: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId) && isValidChat(request.resource.data);
-      allow update: if isOwner(resource.data.userId) && 
-                      request.resource.data.userId == resource.data.userId &&
-                      isValidChat(request.resource.data);
-      allow delete: if isOwner(resource.data.userId);
+      allow read: if isAuthOwner(resource.data.userId);
+      allow create: if isAuthOwner(request.resource.data.userId) && isValidChat(request.resource.data);
+      allow update: if isAuthOwner(resource.data.userId) && 
+                       request.resource.data.userId == resource.data.userId &&
+                       isValidChat(request.resource.data);
+      allow delete: if isAuthOwner(resource.data.userId);
 
       match /messages/{messageId} {
-        allow read: if isOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId);
-        allow create: if isOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId) && 
+        allow read: if isAuthOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId);
+        allow create: if isAuthOwner(get(/databases/$(database)/documents/chats/$(chatId)).data.userId) && 
                         isValidMessage(request.resource.data);
       }
     }
 
     match /memories/{memoryId} {
-      allow read: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId) && isValidMemory(request.resource.data);
-      allow update: if isOwner(resource.data.userId) && 
-                      request.resource.data.userId == resource.data.userId &&
-                      isValidMemory(request.resource.data);
-      allow delete: if isOwner(resource.data.userId);
+      allow read: if isAuthOwner(resource.data.userId);
+      allow create: if isAuthOwner(request.resource.data.userId) && isValidMemory(request.resource.data);
+      allow update: if isAuthOwner(resource.data.userId) && 
+                       request.resource.data.userId == resource.data.userId &&
+                       isValidMemory(request.resource.data);
+      allow delete: if isAuthOwner(resource.data.userId);
     }
   }
 }
