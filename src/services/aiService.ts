@@ -12,14 +12,13 @@ export async function generateText(prompt: string, systemPrompt?: string): Promi
     },
     body: JSON.stringify({
       messages,
-      model: 'mistral', // Standard fast model
-      seed: Math.floor(Math.random() * 1000000),
+      model: 'llama-3.3-70b-versatile', // High-performance Groq model
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || 'Failed to generate text from proxy');
+    throw new Error(errorText || 'Failed to generate response from AI');
   }
 
   return response.text();

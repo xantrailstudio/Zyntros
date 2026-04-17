@@ -2,7 +2,8 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import axios from "axios";
+
+import Groq from "groq-sdk";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,85 +12,39 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Initialize Groq
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
   // Body parser for POST requests
   app.use(express.json());
 
-  // API Route for Image Generation (Proxy to Pollinations)
-  app.get("/api/generate-image", async (req, res) => {
-    // ... existing logic ...
-    const { prompt, seed, width, height, model } = req.query;
-    
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
-    }
-
-    const apiKey = process.env.POLLUNATION_API_KEY;
-    
-    const s = seed || Math.floor(Math.random() * 1000000);
-    const w = width || 1024;
-    const h = height || 1024;
-    const m = model || "flux";
-
-    const pollinationsUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt as string)}?width=${w}&height=${h}&seed=${s}&model=${m}`;
-
-    try {
-      const response = await axios.get(pollinationsUrl, {
-        responseType: "arraybuffer",
-        headers: apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}
-      });
-
-      res.setHeader("Content-Type", response.headers["content-type"] || "image/jpeg");
-      res.send(response.data);
-    } catch (error) {
-      console.error("Error generating image via proxy:", error);
-      res.status(500).json({ error: "Failed to generate image" });
-    }
-  });
-
-  // API Route for Text Generation (Proxy to Pollinations)
+  // API Route for Text Generation (Proxy to Groq)
   app.post("/api/chat", async (req, res) => {
-    const { messages, model, seed } = req.body;
-    const apiKey = process.env.POLLUNATION_API_KEY;
+    const { messages, model } = req.body;
+    const selectedModel = model || "llama-3.3-70b-versatile";
 
-    console.log(`[AI Proxy] Generating text with model: ${model || "mistral"}`);
+    console.log(`[AI Proxy] Generating text with Groq model: ${selectedModel}`);
 
     try {
-      const pData = {
-        messages,
-        model: model || "mistral",
-        seed: seed || Math.floor(Math.random() * 1000000),
-        json: false
-      };
-      
-      const response = await axios.post("https://text.pollinations.ai/", pData, {
-        headers: apiKey ? { 
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        } : {
-          "Content-Type": "application/json"
-        },
-        timeout: 30000 // 30 seconds timeout
+      if (!process.env.GROQ_API_KEY) {
+        throw new Error("GROQ_API_KEY is not set in environment variables");
+      }
+
+      const completion = await groq.chat.completions.create({
+        messages: messages.map((m: any) => ({
+          role: m.role,
+          content: m.content
+        })),
+        model: selectedModel,
+        temperature: 0.7,
+        max_tokens: 4096,
       });
 
-      let text = response.data;
-      
-      // If the response is somehow an object (e.g. from a reasoning model), 
-      // we extract the readable content part
-      if (typeof text === "object" && text !== null) {
-        text = text.content || text.text || text.choices?.[0]?.message?.content || JSON.stringify(text);
-      }
-
-      if (typeof text !== "string") {
-        text = String(text);
-      }
-
+      const text = completion.choices[0]?.message?.content || "";
       res.send(text);
     } catch (error: any) {
-      console.error("Error in chat proxy:", error.message);
-      if (error.response) {
-        console.error("Pollinations Response Error:", error.response.status, error.response.data);
-      }
-      res.status(500).send("AI Service Error: Failed to generate response");
+      console.error("Error in Groq proxy:", error.message);
+      res.status(500).send(`AI Service Error: ${error.message}`);
     }
   });
 

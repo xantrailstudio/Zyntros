@@ -1,6 +1,6 @@
 {
   "name": "Zyntros",
-  "description": "Zyntros: An AI chat application powered by Pollinations.ai with a persistent memory system and Firebase authentication.",
+  "description": "Zyntros: A lightning-fast AI chat application powered by Groq with a persistent memory system and Firebase authentication.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

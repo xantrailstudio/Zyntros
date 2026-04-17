@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Chat, Message, Memory } from '@/src/types';
-import { generateText } from '@/src/services/pollinationsService';
+import { generateText } from '@/src/services/aiService';
 import { db } from '@/src/firebase';
 import { 
   collection, 
@@ -164,7 +164,12 @@ export function useChat(userId: string | undefined) {
       updatedAt: Date.now(),
     };
     try {
-      await setDoc(doc(db, 'chats', id), newChat);
+      // Safety check: only write to DB if we have a real user and they are logged in
+      if (userId !== 'guest' && auth.currentUser) {
+        await setDoc(doc(db, 'chats', id), newChat);
+      } else if (userId === 'guest') {
+        setChats(prev => [newChat as Chat, ...prev]);
+      }
       setActiveChatId(id);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `chats/${id}`);
@@ -185,6 +190,13 @@ export function useChat(userId: string | undefined) {
 
   const addMemory = async (content: string) => {
     if (!userId || userId === 'guest') return;
+    
+    // Safety check: ensure auth.currentUser is populated before writing to DB
+    if (!auth.currentUser) {
+      console.warn("Attempted to add memory but auth.currentUser is null. Data will not persist.");
+      return;
+    }
+
     const memId = Math.random().toString(36).substring(7);
     const newMemory: Memory = {
       id: memId,
@@ -215,10 +227,17 @@ export function useChat(userId: string | undefined) {
         updatedAt: Date.now(),
       };
       
-      if (userId !== 'guest') {
-        await setDoc(doc(db, 'chats', id), newChat);
-      } else {
+      if (userId !== 'guest' && auth.currentUser) {
+        try {
+          await setDoc(doc(db, 'chats', id), newChat);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.CREATE, `chats/${id}`);
+        }
+      } else if (userId === 'guest') {
         // Guests only get one transient chat for now
+        setChats([newChat as Chat]);
+      } else {
+        // Logged in but auth.currentUser null? Fallback to transient for safety
         setChats([newChat as Chat]);
       }
       setActiveChatId(id);
@@ -267,7 +286,7 @@ export function useChat(userId: string | undefined) {
       const historyContext = messages.slice(-10).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
       
       const isGuest = userId === 'guest';
-      const systemPrompt = `You are Zyntros, a highly intelligent AI assistant created by AbdulAziz Memon. You have a persistent memory system.
+      const systemPrompt = `You are Zyntros, a lightning-fast, highly intelligent AI assistant powered by Groq and created by AbdulAziz Memon. You have a persistent memory system.
       
       USER MEMORIES (Key facts you know about the user):
       ${memoryContext || 'No specific memories yet.'}
@@ -276,11 +295,7 @@ export function useChat(userId: string | undefined) {
       ${historyContext || 'No previous history in this session.'}
       
       IMAGE GENERATION:
-      ${isGuest ? '- IMAGE GENERATION IS DISABLED. If the user asks for an image, politely explain that they need to sign in to use this feature.' : `
-      - You can generate images by using the following markdown format: ![Image](/api/generate-image?prompt=DESCRIPTION&seed=SEED&width=1024&height=1024&model=flux)
-      - Replace DESCRIPTION with a detailed, descriptive prompt for the image (use %20 for spaces).
-      - Replace SEED with a random number for variety.
-      - When a user asks for an image, provide the markdown and a brief description.`}
+      - IMAGE GENERATION IS CURRENTLY DISABLED. If the user asks for an image, politely explain that this feature has been removed to prioritize text performance.
       
       CODE BLOCKS:
       - When providing code, ALWAYS use markdown code blocks with the appropriate language identifier (e.g., \`\`\`typescript, \`\`\`python, etc.).

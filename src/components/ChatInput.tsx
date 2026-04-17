@@ -56,7 +56,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         </Button>
       </div>
       <p className="text-[10px] text-center text-muted-foreground mt-2">
-        Powered by Pollinations.ai • Memory system active
+        Powered by Groq • Persistent memory active
       </p>
     </div>
   );
