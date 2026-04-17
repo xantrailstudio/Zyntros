@@ -177,7 +177,7 @@ export function useChat(userId: string | undefined) {
       
       IMAGE GENERATION:
       ${isGuest ? '- IMAGE GENERATION IS DISABLED. If the user asks for an image, politely explain that they need to sign in to use this feature.' : `
-      - You can generate images by using the following markdown format: ![Image](https://pollinations.ai/p/DESCRIPTION?width=1024&height=1024&seed=SEED&model=flux)
+      - You can generate images by using the following markdown format: ![Image](/api/generate-image?prompt=DESCRIPTION&seed=SEED&width=1024&height=1024&model=flux)
       - Replace DESCRIPTION with a detailed, descriptive prompt for the image (use %20 for spaces).
       - Replace SEED with a random number for variety.
       - When a user asks for an image, provide the markdown and a brief description.`}
