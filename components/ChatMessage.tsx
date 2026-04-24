@@ -1,4 +1,4 @@
-import { Message } from '@/src/types';
+import { Message } from '@/types';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { User, Bot, Copy, Check } from 'lucide-react';

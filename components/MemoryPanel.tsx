@@ -3,7 +3,7 @@ import { Brain, Trash2, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Memory } from '@/src/types';
+import { Memory } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
 

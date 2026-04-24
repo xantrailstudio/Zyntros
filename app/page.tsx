@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, useEffect, useRef } from 'react';
-import { auth } from './firebase';
+import { auth } from '@/firebase';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -9,73 +11,19 @@ import {
   signOut,
   User
 } from 'firebase/auth';
-import { Auth } from '@/src/components/Auth';
-import { ChatSidebar } from '@/src/components/ChatSidebar';
-import { ChatMessage } from '@/src/components/ChatMessage';
-import { ChatInput } from '@/src/components/ChatInput';
-import { MemoryPanel } from '@/src/components/MemoryPanel';
-import { useChat } from '@/src/hooks/useChat';
+import { Auth } from '@/components/Auth';
+import { ChatSidebar } from '@/components/ChatSidebar';
+import { ChatMessage } from '@/components/ChatMessage';
+import { ChatInput } from '@/components/ChatInput';
+import { MemoryPanel } from '@/components/MemoryPanel';
+import { useChat } from '@/hooks/useChat';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Brain, LogOut, Menu, User as UserIcon, Plus, X } from 'lucide-react';
+import { Brain, LogOut, Menu, User as UserIcon, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import React, { Component, ErrorInfo, ReactNode } from 'react';
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="h-screen flex flex-col items-center justify-center p-8 text-center space-y-4 bg-background">
-          <Brain className="w-16 h-16 text-destructive" />
-          <h1 className="text-2xl font-bold">Something went wrong</h1>
-          <p className="text-muted-foreground max-w-md">
-            The application encountered an unexpected error. This might be related to database permissions or a transient network issue.
-          </p>
-          <pre className="p-4 bg-muted rounded text-[10px] text-left max-w-full overflow-auto">
-            {this.state.error?.message}
-          </pre>
-          <Button onClick={() => window.location.reload()}>Reload Application</Button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-export default function App() {
-  return (
-    <ErrorBoundary>
-      <AppContent />
-    </ErrorBoundary>
-  );
-}
-
-function AppContent() {
+export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [isGuest, setIsGuest] = useState(true);
   const [authReady, setAuthReady] = useState(false);
@@ -160,7 +108,7 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden font-sans">
       {/* Auth Modal */}
       {showAuthModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
@@ -195,7 +143,7 @@ function AppContent() {
         />
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Header */}
         <header className="h-14 border-b flex items-center justify-between px-4 bg-background/80 backdrop-blur-md sticky top-0 z-10">
@@ -206,7 +154,7 @@ function AppContent() {
                   <Menu className="h-5 w-5" />
                 </Button>
               } />
-              <SheetContent side="left" className="p-0 w-64">
+              <SheetContent side="left" className="p-0 w-64 border-r">
                 <ChatSidebar
                   chats={chats}
                   activeChatId={activeChatId}
@@ -250,54 +198,59 @@ function AppContent() {
           </div>
         </header>
 
-        {/* Messages */}
-        <div 
-          className="flex-1 overflow-y-auto scroll-smooth" 
-          ref={scrollRef}
-        >
-          <div className="max-w-4xl mx-auto pb-20 p-4">
-            {isGuest && (
-              <div className="m-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-[10px] text-primary font-medium text-center">
-                You are in Guest Mode. Memories and image generation are disabled. Sign in to unlock full features.
-              </div>
-            )}
-            {activeChatId && messages.length > 0 ? (
-              <>
-                {messages.map((msg) => (
-                  <ChatMessage key={msg.id} message={msg} />
-                ))}
-                {loading && (
-                  <ChatMessage 
-                    message={{ id: 'loading', role: 'assistant', content: '', timestamp: Date.now() }} 
-                    isLoading={true} 
-                  />
-                )}
-              </>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="bg-primary/5 p-8 rounded-full">
-                  <Brain className="w-16 h-16 text-primary" />
+        {/* Content Area */}
+        <div className="flex-1 relative overflow-hidden flex flex-col">
+          {/* Messages */}
+          <div 
+            className="flex-1 overflow-y-auto scroll-smooth" 
+            ref={scrollRef}
+          >
+            <div className="max-w-4xl mx-auto pb-20 p-4">
+              {isGuest && (
+                <div className="m-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-[10px] text-primary font-medium text-center">
+                  You are in Guest Mode. Memories are disabled. Sign in to unlock full features.
                 </div>
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-bold tracking-tight">How can I help you today?</h2>
-                  <p className="text-muted-foreground max-w-md mx-auto">
-                    Type a message below to start a new conversation. I'll remember key details in your Memory Bank.
-                  </p>
+              )}
+              {activeChatId && messages.length > 0 ? (
+                <>
+                  {messages.map((msg) => (
+                    <ChatMessage key={msg.id} message={msg} />
+                  ))}
+                  {loading && (
+                    <ChatMessage 
+                      message={{ id: 'loading', role: 'assistant', content: '', timestamp: Date.now() }} 
+                      isLoading={true} 
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-6 pt-20">
+                  <div className="bg-primary/5 p-8 rounded-full">
+                    <Brain className="w-16 h-16 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight">How can I help you today?</h2>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      Type a message below to start a new conversation. I'll remember key details in your Memory Bank.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Input */}
-        <div className="sticky bottom-0 w-full">
-          <ChatInput onSend={sendMessage} disabled={loading} />
+          {/* Input */}
+          <div className="sticky bottom-0 w-full p-4 bg-gradient-to-t from-background via-background to-transparent">
+            <div className="max-w-4xl mx-auto">
+              <ChatInput onSend={sendMessage} disabled={loading} />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Memory Panel (Desktop) */}
       {isMemoryOpen && (
-        <div className="hidden lg:block">
+        <div className="hidden lg:block w-80 border-l bg-card">
           <MemoryPanel 
             memories={memories} 
             onAddMemory={addMemory}
@@ -308,8 +261,8 @@ function AppContent() {
       )}
 
       {/* Memory Panel (Mobile/Tablet) */}
-      <Sheet open={isMemoryOpen && window.innerWidth < 1024} onOpenChange={setIsMemoryOpen}>
-        <SheetContent side="right" className="p-0 w-80">
+      <Sheet open={isMemoryOpen && typeof window !== 'undefined' && window.innerWidth < 1024} onOpenChange={setIsMemoryOpen}>
+        <SheetContent side="right" className="p-0 w-80 border-l">
           <MemoryPanel 
             memories={memories} 
             onAddMemory={addMemory}

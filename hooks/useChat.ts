@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Chat, Message, Memory } from '@/src/types';
-import { generateText } from '@/src/services/aiService';
-import { db } from '@/src/firebase';
+import { Chat, Message, Memory } from '@/types';
+import { generateText } from '@/services/aiService';
+import { db, auth } from '@/firebase';
 import { 
   collection, 
   query, 
@@ -14,7 +14,6 @@ import {
   setDoc,
   getDocs
 } from 'firebase/firestore';
-import { auth } from '@/src/firebase';
 import { toast } from 'sonner';
 
 enum OperationType {
@@ -294,9 +293,6 @@ export function useChat(userId: string | undefined) {
       RECENT CONVERSATION HISTORY (Old search/chat history):
       ${historyContext || 'No previous history in this session.'}
       
-      IMAGE GENERATION:
-      - IMAGE GENERATION IS CURRENTLY DISABLED. If the user asks for an image, politely explain that this feature has been removed to prioritize text performance.
-      
       CODE BLOCKS:
       - When providing code, ALWAYS use markdown code blocks with the appropriate language identifier (e.g., \`\`\`typescript, \`\`\`python, etc.).
       - Ensure the code is clean, well-commented, and ready to be copied.
@@ -323,7 +319,8 @@ export function useChat(userId: string | undefined) {
 
       // Handle AI Commands for Renaming
       let cleanResponse = response;
-      const titleMatch = response.match(/\[SET_CHAT_TITLE: (.*?)\]/);
+      
+      const titleMatch = cleanResponse.match(/\[SET_CHAT_TITLE: (.*?)\]/);
       if (titleMatch && userId !== 'guest') {
         const newTitle = titleMatch[1].trim();
         await renameChat(currentChatId, newTitle);

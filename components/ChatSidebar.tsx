@@ -1,7 +1,7 @@
-import { Plus, MessageSquare, Trash2, Brain } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Brain, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Chat } from '@/src/types';
+import { Chat } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface ChatSidebarProps {
@@ -21,7 +21,7 @@ export function ChatSidebar({
   onNewChat,
   onDeleteChat,
   onToggleMemory,
-  isMemoryOpen
+  isMemoryOpen,
 }: ChatSidebarProps) {
   return (
     <div className="flex flex-col h-full bg-muted/30 border-r w-64">
